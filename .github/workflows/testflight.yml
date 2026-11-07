@@ -33,7 +33,7 @@ jobs:
       # 3. Setup Xcode
       - name: Set up Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.0.app || sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+          sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
       # 4. Cache Gradle & Kotlin Native dependencies
