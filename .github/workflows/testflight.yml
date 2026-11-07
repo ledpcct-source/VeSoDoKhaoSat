@@ -139,27 +139,13 @@ jobs:
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             PROVISIONING_PROFILE_SPECIFIER="${{ secrets.APPLE_PROVISIONING_PROFILE_NAME || 'VeSoDo AppStore Profile' }}"
 
-      # 8.5 Inject App Icons and patch SDK metadata in xcarchive before export
-      - name: Inject App Icons and Patch SDK Metadata
+      # 8.5 Inject App Icons into xcarchive before export
+      - name: Inject Standalone App Icons
         run: |
           APP_DIR="build/iosApp.xcarchive/Products/Applications/iosApp.app"
-          APP_PLIST="$APP_DIR/Info.plist"
-
           echo "Injecting standalone App Icons into bundle..."
           cp -f iosApp/iosApp/AppIcons/*.png "$APP_DIR/" || true
           ls -la "$APP_DIR" | grep -i "AppIcon" || true
-
-          if [ -f "$APP_PLIST" ]; then
-            echo "Original DTSDKName:"
-            /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$APP_PLIST" || true
-            /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos26.0" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKName string iphoneos26.0" "$APP_PLIST"
-            /usr/libexec/PlistBuddy -c "Set :DTPlatformVersion 26.0" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTPlatformVersion string 26.0" "$APP_PLIST"
-            /usr/libexec/PlistBuddy -c "Set :DTXcode 2600" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcode string 2600" "$APP_PLIST"
-            /usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 26A100" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcodeBuild string 26A100" "$APP_PLIST"
-            /usr/libexec/PlistBuddy -c "Set :DTSDKBuild 26A100" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKBuild string 26A100" "$APP_PLIST"
-            echo "Patched DTSDKName:"
-            /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$APP_PLIST" || true
-          fi
 
       # 9. Export IPA
       - name: Export .ipa Package
@@ -171,13 +157,9 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>app-store</string>
+              <string>app-store-connect</string>
               <key>teamID</key>
               <string>${{ secrets.APPLE_TEAM_ID }}</string>
-              <key>uploadBitcode</key>
-              <false/>
-              <key>compileBitcode</key>
-              <false/>
               <key>uploadSymbols</key>
               <true/>
               <key>signingStyle</key>
@@ -196,53 +178,35 @@ jobs:
             -exportPath build/ipa \
             -exportOptionsPlist build/ExportOptions.plist
 
-      # 9.5 Patch and re-sign IPA directly before uploading to TestFlight
-      - name: Patch and Re-sign IPA
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'github-actions-temp-pwd' }}
+      # 10. Verify IPA Signature and Entitlements
+      - name: Verify IPA Signature and Entitlements
         run: |
-          cd build/ipa
-          unzip -q iosApp.ipa -d ipa_temp
-          APP_DIR="ipa_temp/Payload/iosApp.app"
-          PLIST="$APP_DIR/Info.plist"
+          echo "=== Verifying IPA structure and code signing ==="
+          unzip -q build/ipa/iosApp.ipa -d verify_ipa
+          echo "--- Embedded Mobileprovision Entitlements ---"
+          security cms -D -i "verify_ipa/Payload/iosApp.app/embedded.mobileprovision" | /usr/libexec/PlistBuddy -c "Print :Entitlements" /dev/stdin || true
+          echo "--- Binary Code Signature Entitlements ---"
+          codesign -d --entitlements :- "verify_ipa/Payload/iosApp.app" || true
+          echo "--- Strict Codesign Verification ---"
+          codesign -vvv --deep --strict "verify_ipa/Payload/iosApp.app"
+          rm -rf verify_ipa
 
-          echo "Original IPA DTSDKName:"
-          /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$PLIST" || true
-
-          # Copy standalone App Icons into bundle
-          cp -f $GITHUB_WORKSPACE/iosApp/iosApp/AppIcons/*.png "$APP_DIR/" || true
-
-          # Patch SDK version to iOS 26 to satisfy Apple App Store 2026 requirement
-          /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos26.0" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKName string iphoneos26.0" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set :DTPlatformVersion 26.0" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTPlatformVersion string 26.0" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set :DTXcode 2600" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcode string 2600" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 26A100" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcodeBuild string 26A100" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set :DTSDKBuild 26A100" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKBuild string 26A100" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$PLIST"
-
-          echo "Patched IPA DTSDKName:"
-          /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$PLIST" || true
-
-          # Re-sign the app with the distribution certificate in the keychain
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
-          codesign --force --sign "Apple Distribution" --keychain "$KEYCHAIN_PATH" --timestamp "$APP_DIR"
-          codesign -vvv --deep --strict "$APP_DIR"
-
-          # Repack the IPA
-          rm -f iosApp.ipa
-          cd ipa_temp
-          zip -qry ../iosApp.ipa *
-          cd ..
-          rm -rf ipa_temp
-          cd ../..
-          echo "IPA re-packaged and re-signed successfully."
-
-      # 10. Upload to Apple TestFlight
+      # 11. Upload to Apple TestFlight
       - name: Upload to Apple TestFlight
-        uses: apple-actions/upload-testflight-build@v1
-        with:
-          app-path: 'build/ipa/iosApp.ipa'
-          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          echo "Installing App Store Connect API Key..."
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$HOME/.private_keys"
+          python3 -c "import os, sys; open(sys.argv[1], 'w').write(os.environ['PRIVATE_KEY'].strip() + '\n')" "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8"
+          cp "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" "$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8" "$HOME/.private_keys/AuthKey_${KEY_ID}.p8"
+
+          echo "Validating IPA package with Apple App Store Connect..."
+          xcrun altool --validate-app -f build/ipa/iosApp.ipa -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" --show-progress
+
+          echo "Uploading IPA package to TestFlight..."
+          xcrun altool --upload-app -f build/ipa/iosApp.ipa -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID" --show-progress
