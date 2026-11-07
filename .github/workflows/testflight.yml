@@ -15,7 +15,7 @@ on:
 jobs:
   build-and-deploy:
     name: Build & Upload to TestFlight
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
     steps:
@@ -33,7 +33,7 @@ jobs:
       # 3. Setup Xcode
       - name: Set up Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+          sudo xcode-select -s /Applications/Xcode_16.0.app || sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
 
       # 4. Cache Gradle & Kotlin Native dependencies
