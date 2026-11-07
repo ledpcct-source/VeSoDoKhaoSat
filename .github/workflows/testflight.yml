@@ -63,16 +63,16 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
           # Giai ma va import Certificate (.p12)
-          CERT_PATH=$RUNNER_TEMP/certificate.p12
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERT_PATH
-          security import $CERT_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychain -d user -s $KEYCHAIN_PATH
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
 
           # Giai ma va copy Provisioning Profile
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          PROFILE_PATH=~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PROFILE_PATH
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/build.mobileprovision"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
 
       # 6. Build Kotlin Multiplatform Framework
       - name: Build Compose Multiplatform iOS Framework
