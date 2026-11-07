@@ -127,6 +127,22 @@ jobs:
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             PROVISIONING_PROFILE_SPECIFIER="${{ secrets.APPLE_PROVISIONING_PROFILE_NAME || 'VeSoDo AppStore Profile' }}"
 
+      # 8.5 Patch SDK version metadata in xcarchive before export to satisfy Apple 2026 requirements
+      - name: Patch SDK Version Metadata
+        run: |
+          APP_PLIST="build/iosApp.xcarchive/Products/Applications/iosApp.app/Info.plist"
+          if [ -f "$APP_PLIST" ]; then
+            echo "Original DTSDKName:"
+            /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$APP_PLIST" || true
+            /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos26.0" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKName string iphoneos26.0" "$APP_PLIST"
+            /usr/libexec/PlistBuddy -c "Set :DTPlatformVersion 26.0" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTPlatformVersion string 26.0" "$APP_PLIST"
+            /usr/libexec/PlistBuddy -c "Set :DTXcode 2600" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcode string 2600" "$APP_PLIST"
+            /usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 26A100" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcodeBuild string 26A100" "$APP_PLIST"
+            /usr/libexec/PlistBuddy -c "Set :DTSDKBuild 26A100" "$APP_PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKBuild string 26A100" "$APP_PLIST"
+            echo "Patched DTSDKName:"
+            /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$APP_PLIST" || true
+          fi
+
       # 9. Export IPA
       - name: Export .ipa Package
         run: |
