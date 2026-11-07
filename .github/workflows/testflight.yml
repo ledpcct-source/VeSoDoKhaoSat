@@ -76,9 +76,11 @@ jobs:
 
       # 6. Build Kotlin Multiplatform Framework
       - name: Build Compose Multiplatform iOS Framework
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx6144M -XX:+UseG1GC"
         run: |
           chmod +x gradlew
-          ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon
+          ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --no-daemon -Dorg.gradle.jvmargs="-Xmx6144M -XX:+UseG1GC"
 
       # 7. Update Version & Build Number
       - name: Configure App Version & Build Number
