@@ -55,6 +55,7 @@ jobs:
           P12_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.APPLE_PROVISION_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'github-actions-temp-pwd' }}
+          PROFILE_NAME: ${{ secrets.APPLE_PROVISIONING_PROFILE_NAME || 'VeSoDo AppStore Profile' }}
         run: |
           # Tao keychain tam thoi tren runner
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
@@ -62,19 +63,33 @@ jobs:
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # Giai ma va import Certificate (.p12)
+          # Giai ma va import Certificate (.p12) bang Python de dam bao chinh xac tuyet doi
           CERT_PATH="$RUNNER_TEMP/certificate.p12"
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          python3 -c "import os, base64; open(os.environ['CERT_PATH'], 'wb').write(base64.b64decode(os.environ['BUILD_CERTIFICATE_BASE64'].strip()))"
+          ls -la "$CERT_PATH"
           security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-          # Giai ma va copy Provisioning Profile
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/4e14ff80-3574-4f7e-8ae1-a878c2798b3a.mobileprovision"
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
-          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/build.mobileprovision"
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
+          # Giai ma va cai dat Provisioning Profile
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_DIR"
+          RAW_PROFILE="$RUNNER_TEMP/profile.mobileprovision"
+          python3 -c "import os, base64; open(os.environ['RAW_PROFILE'], 'wb').write(base64.b64decode(os.environ['BUILD_PROVISION_PROFILE_BASE64'].strip()))"
+          ls -la "$RAW_PROFILE"
+
+          if [ ! -s "$RAW_PROFILE" ]; then
+            echo "ERROR: Provisioning profile is empty!"
+            exit 1
+          fi
+
+          # Trich xuat UUID va cai vao dung thu muc ma Xcode 16 yeu cau
+          security cms -D -i "$RAW_PROFILE" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$RUNNER_TEMP/profile.plist" || echo "4e14ff80-3574-4f7e-8ae1-a878c2798b3a")
+          echo "Provisioning Profile UUID: $UUID"
+          cp "$RAW_PROFILE" "$PROFILES_DIR/$UUID.mobileprovision"
+          cp "$RAW_PROFILE" "$PROFILES_DIR/build.mobileprovision"
+          ls -la "$PROFILES_DIR"
 
       # 6. Build Kotlin Multiplatform Framework
       - name: Build Compose Multiplatform iOS Framework
@@ -110,7 +125,7 @@ jobs:
             CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
-            PROVISIONING_PROFILE_SPECIFIER="4e14ff80-3574-4f7e-8ae1-a878c2798b3a"
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.APPLE_PROVISIONING_PROFILE_NAME || 'VeSoDo AppStore Profile' }}"
 
       # 9. Export IPA
       - name: Export .ipa Package
@@ -136,7 +151,7 @@ jobs:
               <key>provisioningProfiles</key>
               <dict>
                   <key>${{ secrets.APPLE_BUNDLE_ID || 'com.vesodo.khaosat' }}</key>
-                  <string>4e14ff80-3574-4f7e-8ae1-a878c2798b3a</string>
+                  <string>${{ secrets.APPLE_PROVISIONING_PROFILE_NAME || 'VeSoDo AppStore Profile' }}</string>
               </dict>
           </dict>
           </plist>
