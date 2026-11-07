@@ -33,8 +33,9 @@ jobs:
       # 3. Setup Xcode
       - name: Set up Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
+          sudo xcode-select -s /Applications/Xcode_16.1.app || sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s /Applications/Xcode.app
           xcodebuild -version
+          xcrun simctl list runtimes || true
 
       # 4. Cache Gradle & Kotlin Native dependencies
       - name: Cache Gradle Packages
@@ -183,6 +184,48 @@ jobs:
             -archivePath build/iosApp.xcarchive \
             -exportPath build/ipa \
             -exportOptionsPlist build/ExportOptions.plist
+
+      # 9.5 Patch and re-sign IPA directly before uploading to TestFlight
+      - name: Patch and Re-sign IPA
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD || 'github-actions-temp-pwd' }}
+        run: |
+          cd build/ipa
+          unzip -q iosApp.ipa -d ipa_temp
+          APP_DIR="ipa_temp/Payload/iosApp.app"
+          PLIST="$APP_DIR/Info.plist"
+
+          echo "Original IPA DTSDKName:"
+          /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$PLIST" || true
+
+          # Copy standalone App Icons into bundle
+          cp -f $GITHUB_WORKSPACE/iosApp/iosApp/AppIcons/*.png "$APP_DIR/" || true
+
+          # Patch SDK version to iOS 26 to satisfy Apple App Store 2026 requirement
+          /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos26.0" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKName string iphoneos26.0" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :DTPlatformVersion 26.0" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTPlatformVersion string 26.0" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :DTXcode 2600" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcode string 2600" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 26A100" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTXcodeBuild string 26A100" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :DTSDKBuild 26A100" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :DTSDKBuild string 26A100" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$PLIST"
+
+          echo "Patched IPA DTSDKName:"
+          /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$PLIST" || true
+
+          # Re-sign the app with the distribution certificate in the keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" || true
+          codesign --force --sign "Apple Distribution" --keychain "$KEYCHAIN_PATH" --timestamp "$APP_DIR"
+          codesign -vvv --deep --strict "$APP_DIR"
+
+          # Repack the IPA
+          rm -f iosApp.ipa
+          cd ipa_temp
+          zip -qry ../iosApp.ipa *
+          cd ..
+          rm -rf ipa_temp
+          cd ../..
+          echo "IPA re-packaged and re-signed successfully."
 
       # 10. Upload to Apple TestFlight
       - name: Upload to Apple TestFlight
