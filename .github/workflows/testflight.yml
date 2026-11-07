@@ -71,13 +71,10 @@ jobs:
 
           # Giai ma va copy Provisioning Profile
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          RAW_PROFILE="$RUNNER_TEMP/temp.mobileprovision"
-          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$RAW_PROFILE"
-          security cms -D -i "$RAW_PROFILE" > "$RUNNER_TEMP/profile.plist"
-          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$RUNNER_TEMP/profile.plist")
-          echo "Extracted Profile UUID: $UUID"
-          cp "$RAW_PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
-          echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
+          PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/4e14ff80-3574-4f7e-8ae1-a878c2798b3a.mobileprovision"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/build.mobileprovision"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles"
 
       # 6. Build Kotlin Multiplatform Framework
       - name: Build Compose Multiplatform iOS Framework
@@ -113,7 +110,7 @@ jobs:
             CODE_SIGN_STYLE="Manual" \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
-            PROVISIONING_PROFILE_SPECIFIER="${{ env.PROFILE_UUID }}"
+            PROVISIONING_PROFILE_SPECIFIER="4e14ff80-3574-4f7e-8ae1-a878c2798b3a"
 
       # 9. Export IPA
       - name: Export .ipa Package
@@ -139,7 +136,7 @@ jobs:
               <key>provisioningProfiles</key>
               <dict>
                   <key>${{ secrets.APPLE_BUNDLE_ID || 'com.vesodo.khaosat' }}</key>
-                  <string>${{ env.PROFILE_UUID }}</string>
+                  <string>4e14ff80-3574-4f7e-8ae1-a878c2798b3a</string>
               </dict>
           </dict>
           </plist>
