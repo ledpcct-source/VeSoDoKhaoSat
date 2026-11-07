@@ -1,0 +1,37 @@
+# Gradle & Kotlin
+.gradle/
+build/
+composeApp/build/
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+local.properties
+
+# Output binaries
+*.exe
+*.msi
+scratch/
+Xuat_Ban_Desktop/
+dxf-tool/node_modules/
+node_modules/
+
+# Apple Secrets & Keys (Bao mat tuyet doi)
+*.p12
+*.key
+*.p8
+*.mobileprovision
+*.cer
+*.pem
+*.certSigningRequest
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cong cu ngoai le tren PC
+dxf-tool/
+
+composeApp/release/
