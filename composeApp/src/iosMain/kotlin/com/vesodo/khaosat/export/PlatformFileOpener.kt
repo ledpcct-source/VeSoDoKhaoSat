@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package com.vesodo.khaosat.export
 
 import platform.Foundation.NSString
