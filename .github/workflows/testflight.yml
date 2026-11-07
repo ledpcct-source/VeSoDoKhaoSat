@@ -127,10 +127,16 @@ jobs:
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
             PROVISIONING_PROFILE_SPECIFIER="${{ secrets.APPLE_PROVISIONING_PROFILE_NAME || 'VeSoDo AppStore Profile' }}"
 
-      # 8.5 Patch SDK version metadata in xcarchive before export to satisfy Apple 2026 requirements
-      - name: Patch SDK Version Metadata
+      # 8.5 Inject App Icons and patch SDK metadata in xcarchive before export
+      - name: Inject App Icons and Patch SDK Metadata
         run: |
-          APP_PLIST="build/iosApp.xcarchive/Products/Applications/iosApp.app/Info.plist"
+          APP_DIR="build/iosApp.xcarchive/Products/Applications/iosApp.app"
+          APP_PLIST="$APP_DIR/Info.plist"
+
+          echo "Injecting standalone App Icons into bundle..."
+          cp -f iosApp/iosApp/AppIcons/*.png "$APP_DIR/" || true
+          ls -la "$APP_DIR" | grep -i "AppIcon" || true
+
           if [ -f "$APP_PLIST" ]; then
             echo "Original DTSDKName:"
             /usr/libexec/PlistBuddy -c "Print :DTSDKName" "$APP_PLIST" || true
