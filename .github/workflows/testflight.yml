@@ -72,8 +72,9 @@ jobs:
           # Giai ma va copy Provisioning Profile
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           RAW_PROFILE="$RUNNER_TEMP/temp.mobileprovision"
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$RAW_PROFILE"
-          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(security cms -D -i "$RAW_PROFILE"))
+          echo "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$RAW_PROFILE"
+          security cms -D -i "$RAW_PROFILE" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" "$RUNNER_TEMP/profile.plist")
           echo "Extracted Profile UUID: $UUID"
           cp "$RAW_PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
           echo "PROFILE_UUID=$UUID" >> $GITHUB_ENV
