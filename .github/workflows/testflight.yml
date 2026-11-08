@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Marketing Version (e.g. 1.0.2)'
+        description: 'Marketing Version (e.g. 1.0.3)'
         required: false
-        default: '1.0.2'
+        default: '1.0.3'
   push:
     branches:
       - master
@@ -117,7 +117,7 @@ jobs:
           INPUT_VERSION: ${{ github.event.inputs.version_name }}
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
-          VERSION="${INPUT_VERSION:-1.0.2}"
+          VERSION="${INPUT_VERSION:-1.0.3}"
           echo "Setting Marketing Version to: $VERSION"
           echo "Setting Build Number to: $BUILD_NUMBER"
           cd iosApp

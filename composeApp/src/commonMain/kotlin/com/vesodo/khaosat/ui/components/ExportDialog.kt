@@ -55,8 +55,10 @@ fun ExportDialog(
                 Text(
                     text = if (isDesktopPlatform)
                         "Chọn định dạng muốn xuất và lưu trữ (Hỗ trợ bản vẽ CAD .DXF, hình ảnh và PDF):"
+                    else if (isIosPlatform)
+                        "Ảnh sơ đồ sẽ được lưu trực tiếp vào Thư viện ảnh (Photos) của iPhone/iPad:"
                     else
-                        "Ảnh sơ đồ sẽ được lưu trực tiếp với chất lượng cao chuẩn khổ A4 vào Thư viện của thiết bị:",
+                        "Ảnh sơ đồ sẽ được lưu trực tiếp với chất lượng cao chuẩn khổ A4 vào Bộ sưu tập của thiết bị:",
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
@@ -348,7 +350,7 @@ fun ExportDialog(
                         )
                         isExporting = false
                         if (result.success) {
-                            if (!isAndroidPlatform && result.filePath.isNotBlank()) {
+                            if (isDesktopPlatform && result.filePath.isNotBlank()) {
                                 com.vesodo.khaosat.export.PlatformFileOpener.openFolder(result.filePath)
                             }
                             onExportComplete(result)
@@ -359,7 +361,11 @@ fun ExportDialog(
                 },
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Text(if (isAndroidPlatform) "Lưu vào Bộ sưu tập" else "Lưu tệp")
+                Text(
+                    if (isAndroidPlatform) "Lưu vào Bộ sưu tập"
+                    else if (isIosPlatform) "Lưu vào Thư viện ảnh"
+                    else "Lưu tệp"
+                )
             }
         },
         dismissButton = {

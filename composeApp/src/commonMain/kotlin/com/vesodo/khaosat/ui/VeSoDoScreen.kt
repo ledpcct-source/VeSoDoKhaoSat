@@ -155,6 +155,9 @@ fun VeSoDoScreen(
             },
             bottomBar = {
                 BottomPaletteBar(state = state)
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState)
             }
         ) { innerPadding ->
             BoxWithConstraints(
