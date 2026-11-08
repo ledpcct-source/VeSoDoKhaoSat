@@ -105,8 +105,7 @@ actual object PlatformDrawingExporter {
             // Chuyển đổi ImageBitmap (Skiko) sang dữ liệu ảnh nén JPEG
             val skiaBitmap = capturedBitmap.asSkiaBitmap()
             val skiaImage = Image.makeFromBitmap(skiaBitmap)
-            val encodeFormat = if (format == ExportFormat.PNG) EncodedImageFormat.PNG else EncodedImageFormat.JPEG
-            val encodedData = skiaImage.encodeToData(encodeFormat, 95)
+            val encodedData = skiaImage.encodeToData(EncodedImageFormat.JPEG, 95)
                 ?: return@withContext ExportResult(false, message = "Không thể nén dữ liệu hình ảnh sơ đồ")
 
             val bytes = encodedData.bytes
